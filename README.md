@@ -51,6 +51,10 @@ works, so saved frames contain the real picture. When two renditions exist a qua
 appears in the top bar (picture quality is preferred over audio by default, since that's what
 frame inspection needs); switching keeps your place in the video.
 
+This middleware only exists in the Vite dev server (`npm run dev`). A static build from
+`npm run build` has no `/api/*` routes, so YouTube links always use the embedded fallback
+below. The proxy only forwards to YouTube's video CDN (`*.googlevideo.com`).
+
 If the resolve fails — no network, yt-dlp blocked, an unusual video — the picker offers the
 embedded YouTube player as a fallback. That still plays and annotates, and saved frames get a
 *drawing only* thumbnail: the strokes on a grid card, with the timestamp.

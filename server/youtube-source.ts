@@ -49,7 +49,8 @@ function pickFormats(formats: Format[]): { progressive?: Format; videoOnly?: For
 async function resolve(pageUrl: string): Promise<{ title: string; options: StreamOption[] }> {
   const { stdout } = await execFileAsync(
     YTDLP,
-    ["--dump-single-json", "--no-warnings", "--no-playlist", pageUrl],
+    // "--" so a url starting with "-" can't be read as a yt-dlp option
+    ["--dump-single-json", "--no-warnings", "--no-playlist", "--", pageUrl],
     { maxBuffer: 64 * 1024 * 1024 },
   );
   const info = JSON.parse(stdout) as { title?: string; formats?: Format[] };
@@ -78,6 +79,17 @@ async function resolve(pageUrl: string): Promise<{ title: string; options: Strea
   // best picture first: frame inspection beats audio here
   options.sort((a, b) => b.height - a.height);
   return { title: info.title ?? pageUrl, options };
+}
+
+/** Only proxy YouTube's video CDN, so /api/stream can't be used to fetch
+ *  arbitrary URLs (e.g. things on the local network) through this server. */
+function isAllowedUpstream(u: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(u);
+    return protocol === "https:" && hostname.endsWith(".googlevideo.com");
+  } catch {
+    return false;
+  }
 }
 
 /** Pipe the upstream bytes through our own origin so <video> frames stay
@@ -129,6 +141,10 @@ export function youtubeSource(): Plugin {
           if (!target) {
             res.statusCode = 400;
             return res.end("missing u");
+          }
+          if (!isAllowedUpstream(target)) {
+            res.statusCode = 403;
+            return res.end("upstream not allowed");
           }
           try {
             await stream(req, res, target);
